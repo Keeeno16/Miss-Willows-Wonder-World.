@@ -1,0 +1,42 @@
+{
+  "version": "0.4.3",
+  "release_archive_sha256": "059c322df83cf7aa40579b2a9ab468c8e3b0d9edeae78c4bacbb6d996c14f4b8",
+  "source_commit": "95344936074c519e6c979da5bf1ec61b6fae4efc",
+  "files": {
+    "index.html": {
+      "bytes": 6010,
+      "sha256": "4929115d3f30e9c04df18b0cd06c03fae29fa14e1d892f717788281d1d713061"
+    },
+    "index.js": {
+      "bytes": 315759,
+      "sha256": "e3f56ee40e6f84371053db06692cfac15e2c8659547b11c6b2dfa1996dabd981"
+    },
+    "index.wasm": {
+      "bytes": 37700666,
+      "sha256": "26b61ce95247012ab3dca3ff51e96d1cdbff44ee91a8c20a83e150afca83f1b6"
+    },
+    "index.pck": {
+      "bytes": 5248948,
+      "sha256": "97278db9c0c15fe3151714ce38678cb329e407922880def71bea4890b861dda5"
+    },
+    "index.png": {
+      "bytes": 21443,
+      "sha256": "3cb4495c0b98dfbe4b663cbf2b6836473572339beb66d902367893162a70be0e"
+    },
+    "index.audio.worklet.js": {
+      "bytes": 7298,
+      "sha256": "5b476a9c9ce642c0ee4256436d1bc31d9c38f868aca0f9a8e2a57c18d2dec2a3"
+    },
+    "index.audio.position.worklet.js": {
+      "bytes": 2973,
+      "sha256": "be33985bc7160d6bf9646f259cd86b259cd67b02ccb297ee5c44f8ac84327bc8"
+    },
+    "GODOT_THIRD_PARTY_NOTICES.txt": {
+      "bytes": 95721,
+      "sha256": "eb47dbc9c00fca084f2e8b5a87eaf7683197c8cee78200347dc10e754c5a9acc"
+    }
+  },
+  "physical_iphone_ipad_test": "pending",
+  "progress": "session-only",
+  "teacher_voice_recordings_included": false
+}
