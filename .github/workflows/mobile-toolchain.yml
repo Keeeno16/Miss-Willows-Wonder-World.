@@ -1,0 +1,33 @@
+name: Willow mobile toolchain
+on:
+  push:
+    branches: ["willow/mobile-0.4.3"]
+    paths: [".github/workflows/mobile-toolchain.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Download official Godot engine and web templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=4.6.3
+          BASE="https://github.com/godotengine/godot-builds/releases/download/${VERSION}-stable"
+          mkdir -p toolchain
+          curl --fail --location --retry 3 "$BASE/Godot_v${VERSION}-stable_linux.x86_64.zip" -o engine.zip
+          curl --fail --location --retry 3 "$BASE/Godot_v${VERSION}-stable_export_templates.tpz" -o templates.zip
+          unzip -q engine.zip -d toolchain
+          unzip -q templates.zip 'templates/web_nothreads_release.zip' 'templates/web_nothreads_debug.zip' 'templates/version.txt' -d toolchain
+          chmod +x toolchain/Godot_v${VERSION}-stable_linux.x86_64
+          toolchain/Godot_v${VERSION}-stable_linux.x86_64 --headless --version | tee toolchain/ENGINE_VERSION.txt
+          sha256sum engine.zip templates.zip > toolchain/DOWNLOAD_SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: willow-mobile-toolchain
+          path: toolchain/
+          retention-days: 3
+          if-no-files-found: error
