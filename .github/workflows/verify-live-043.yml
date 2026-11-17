@@ -1,0 +1,76 @@
+name: Verify live Willow 0.4.3
+on:
+  push:
+    branches: [willow/verify-live-0.4.3]
+    paths: [.github/workflows/verify-live-043.yml]
+permissions: {}
+jobs:
+  verify-live-files:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Fetch the public release and verify its files
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import concurrent.futures
+          import hashlib
+          import json
+          import urllib.request
+          from urllib.parse import urlparse
+
+          BASE = 'https://miss-willows-wonder-world-vrhr.onrender.com'
+          RELEASE = '059c322df83cf7aa40579b2a9ab468c8e3b0d9edeae78c4bacbb6d996c14f4b8'
+          EXPECTED = {
+              'index.html': (6010, '4929115d3f30e9c04df18b0cd06c03fae29fa14e1d892f717788281d1d713061'),
+              'index.js': (315759, 'e3f56ee40e6f84371053db06692cfac15e2c8659547b11c6b2dfa1996dabd981'),
+              'index.wasm': (37700666, '26b61ce95247012ab3dca3ff51e96d1cdbff44ee91a8c20a83e150afca83f1b6'),
+              'index.pck': (5248948, '97278db9c0c15fe3151714ce38678cb329e407922880def71bea4890b861dda5'),
+              'index.png': (21443, '3cb4495c0b98dfbe4b663cbf2b6836473572339beb66d902367893162a70be0e'),
+              'index.audio.worklet.js': (7298, '5b476a9c9ce642c0ee4256436d1bc31d9c38f868aca0f9a8e2a57c18d2dec2a3'),
+              'index.audio.position.worklet.js': (2973, 'be33985bc7160d6bf9646f259cd86b259cd67b02ccb297ee5c44f8ac84327bc8'),
+              'GODOT_THIRD_PARTY_NOTICES.txt': (95721, 'eb47dbc9c00fca084f2e8b5a87eaf7683197c8cee78200347dc10e754c5a9acc'),
+          }
+
+          def fetch(path):
+              req = urllib.request.Request(BASE + path, headers={'Accept-Encoding': 'identity', 'User-Agent': 'Willow-Release-Verification/0.4.3'})
+              with urllib.request.urlopen(req, timeout=45) as response:
+                  assert response.status == 200, (path, response.status)
+                  assert urlparse(response.url).scheme == 'https', response.url
+                  content_type = response.headers.get_content_type()
+                  content = response.read(50_000_001)
+                  assert len(content) <= 50_000_000, 'Unexpectedly large response'
+              return content, content_type
+
+          root, root_type = fetch('/')
+          assert root_type == 'text/html' and b'mobile/' in root
+          print('PASS: HTTPS root routes visitors to the mobile playtest', flush=True)
+          manifest_bytes, manifest_type = fetch('/mobile/build.json')
+          manifest = json.loads(manifest_bytes)
+          assert manifest['version'] == '0.4.3'
+          assert manifest['release_archive_sha256'] == RELEASE
+          assert manifest['source_commit'] == '95344936074c519e6c979da5bf1ec61b6fae4efc'
+          print('PASS: live manifest identifies the approved 0.4.3 upload', flush=True)
+
+          def verify(item):
+              name, (size, checksum) = item
+              data, mime = fetch('/mobile/' + name)
+              assert len(data) == size, (name, 'size', len(data), size)
+              assert hashlib.sha256(data).hexdigest() == checksum, (name, 'checksum')
+              assert manifest['files'][name] == {'bytes': size, 'sha256': checksum}
+              if name == 'index.wasm':
+                  assert mime == 'application/wasm', (name, mime)
+                  assert data[:4] == b'\0asm'
+              elif name.endswith('.js'):
+                  assert mime in ('application/javascript', 'text/javascript'), (name, mime)
+              elif name == 'index.html':
+                  assert mime == 'text/html'
+                  assert b'Tap to explore' in data and b'Playtest 0.4.3' in data
+              return f'PASS: {name}: HTTP 200, {size} bytes, SHA256 verified, MIME {mime}'
+
+          with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+              for line in pool.map(verify, EXPECTED.items()):
+                  print(line, flush=True)
+          print('RESULT: all live release download checks passed.', flush=True)
+          print('LIMIT: no browser execution or physical iPhone/iPad test was performed by this workflow.', flush=True)
+          PY
