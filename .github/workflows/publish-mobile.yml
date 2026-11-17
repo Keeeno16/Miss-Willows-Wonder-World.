@@ -1,0 +1,88 @@
+name: Publish Willow mobile playtest
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - WillowsWonders_v0.4.3_Web_Playtest.zip
+      - .deployment/publish_mobile.py
+      - .github/workflows/publish-mobile.yml
+  pull_request:
+    paths:
+      - .deployment/publish_mobile.py
+      - .github/workflows/publish-mobile.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: willow-mobile-publication-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test-publisher:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the exact triggering commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Test archive validation and fail-safe behavior
+        run: python3 .deployment/publish_mobile.py --self-test
+      - name: Validate the release if uploaded
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f WillowsWonders_v0.4.3_Web_Playtest.zip ]; then
+            python3 .deployment/publish_mobile.py --validate-only
+          else
+            echo 'Publisher tests passed. The approved Web_Playtest ZIP has not been uploaded yet.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  publish:
+    needs: test-publisher
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && github.repository == 'Keeeno16/Miss-Willows-Wonder-World.'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the exact triggering commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Check for the approved browser archive
+        id: release
+        shell: bash
+        run: |
+          if [ -f WillowsWonders_v0.4.3_Web_Playtest.zip ]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo '## Waiting for the browser export' >> "$GITHUB_STEP_SUMMARY"
+            echo 'Upload WillowsWonders_v0.4.3_Web_Playtest.zip unchanged to the root of main. The next push will validate and publish it. The existing site was not replaced.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Extract the verified playable files without rebuilding or changing the game
+        if: steps.release.outputs.ready == 'true'
+        run: python3 .deployment/publish_mobile.py
+      - name: Commit the playable release for Render auto-deploy
+        if: steps.release.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Willow Mobile Publisher'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- mobile/ index.html robots.txt
+          if git diff --cached --quiet; then
+            echo 'This exact release is already published.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git commit -m 'Publish validated Godot 0.4.3 mobile playtest'
+          # Never force-push: concurrent changes require a fresh run.
+          git push origin HEAD:main
+          echo '## Playable files published' >> "$GITHUB_STEP_SUMMARY"
+          echo 'The existing Willow Render static site can now auto-deploy this commit. Confirm Render reports Live before device testing.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Game path: /mobile/. Version manifest: /mobile/build.json. Physical iPhone/iPad tests remain pending.' >> "$GITHUB_STEP_SUMMARY"
